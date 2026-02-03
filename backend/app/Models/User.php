@@ -21,6 +21,8 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'github_id',
+        'api_token',
     ];
 
     /**
@@ -31,6 +33,7 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'api_token',
     ];
 
     /**
@@ -44,5 +47,29 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * Get the projects for the user.
+     */
+    public function projects()
+    {
+        return $this->hasMany(Project::class);
+    }
+
+    /**
+     * Get the runners for the user.
+     */
+    public function runners()
+    {
+        return $this->hasMany(Runner::class);
+    }
+
+    /**
+     * Get all deployment jobs through projects.
+     */
+    public function deploymentJobs()
+    {
+        return $this->hasManyThrough(DeploymentJob::class, Project::class);
     }
 }
