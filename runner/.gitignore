@@ -1,0 +1,45 @@
+# Binaries for programs
+# For development it is recommended to build programs in place.
+# For production use a separate build directory, for example 'bin/'.
+#
+# If you only want to ignore the built executables you can add
+# something like:
+#
+# myprogram
+deployr-runner.exe
+#
+# If you want to ignore all of the built executables in the current
+# directory you can add:
+#
+# /*
+# !/*.go
+# !/*.mod
+# !/*.sum
+
+# Binaries for programs
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, can be ignored
+*_test
+
+# Project-local vendor folder
+vendor/
+
+# Environment files
+.env
+.env.*
+
+# IDE and editor files
+.idea/         # IntelliJ/GoLand
+.vscode/       # VS Code
+*.swp          # Vim
+*.swo          # Vim
+*~             # general editor backup files
+
+# Operating system files
+.DS_Store      # macOS
+Thumbs.db      # Windows
