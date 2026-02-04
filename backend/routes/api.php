@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\JobController;
 use App\Http\Controllers\Api\RunnerController;
+use App\Http\Controllers\Api\WebhookController;
 
 /*
 |--------------------------------------------------------------------------
@@ -21,6 +22,7 @@ use App\Http\Controllers\Api\RunnerController;
 // Public routes
 Route::post('/auth/register', [AuthController::class, 'register']);
 Route::post('/auth/login', [AuthController::class, 'login']);
+Route::post('/webhooks/github', [WebhookController::class, 'handleGitHub']);
 
 // Protected routes (require API token via custom middleware)
 Route::middleware('auth.token')->group(function () {

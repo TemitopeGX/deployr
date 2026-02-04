@@ -12,6 +12,17 @@ class Project extends Model
         'repo_url',
         'framework',
         'target',
+        'ssh_host',
+        'ssh_port',
+        'ssh_user',
+        'ssh_password',
+        'ssh_key_path',
+        'remote_path',
+        'public_path',
+    ];
+
+    protected $casts = [
+        'ssh_password' => 'encrypted',
     ];
 
     /**

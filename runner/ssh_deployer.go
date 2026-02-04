@@ -110,18 +110,35 @@ func (d *SSHDeployer) ExecuteCommand(command string) (string, error) {
 	return output, nil
 }
 
-// DeployViaGitPull deploys a project using git pull
-func (d *SSHDeployer) DeployViaGitPull(remotePath, branch string) error {
+// DeployViaGitPull deploys a project using git pull (clones if missing)
+func (d *SSHDeployer) DeployViaGitPull(remotePath, branch, publicPath, repoURL string) error {
 	log.Printf("🚀 Starting Git Pull deployment to: %s\n", remotePath)
 
-	// 1. Navigate to project directory and pull latest code
-	log.Println("📥 Pulling latest code from Git...")
-	pullCmd := fmt.Sprintf("cd %s && git pull origin %s", remotePath, branch)
-	output, err := d.ExecuteCommand(pullCmd)
-	if err != nil {
-		return fmt.Errorf("git pull failed: %w, output: %s", err, output)
+	// 1. Ensure remote path exists or clone it
+	log.Println("📥 Checking remote path...")
+
+	// Create parent directory if it doesn't exist
+	mkdirCmd := fmt.Sprintf("mkdir -p $(dirname %s)", remotePath)
+	d.ExecuteCommand(mkdirCmd)
+
+	// Check if directory exists and has a .git folder
+	checkCmd := fmt.Sprintf("[ -d %s/.git ] && echo 'exists' || echo 'missing'", remotePath)
+	output, _ := d.ExecuteCommand(checkCmd)
+
+	var finalCmd string
+	if strings.TrimSpace(output) == "missing" {
+		log.Println("📂 Target directory missing or not a git repo. Cloning...")
+		finalCmd = fmt.Sprintf("rm -rf %[1]s && git clone --branch %[2]s --depth 1 %[3]s %[1]s", remotePath, branch, repoURL)
+	} else {
+		log.Println("📥 Pulling latest code from Git...")
+		finalCmd = fmt.Sprintf("cd %s && git pull origin %s", remotePath, branch)
 	}
-	log.Printf("✅ Git pull completed: %s\n", strings.TrimSpace(output))
+
+	output, err := d.ExecuteCommand(finalCmd)
+	if err != nil {
+		return fmt.Errorf("git operation failed: %w, output: %s", err, output)
+	}
+	log.Printf("✅ Git operation completed: %s\n", strings.TrimSpace(output))
 
 	// 2. Install composer dependencies
 	log.Println("📦 Installing Composer dependencies...")
@@ -163,6 +180,24 @@ func (d *SSHDeployer) DeployViaGitPull(remotePath, branch string) error {
 		log.Printf("⚠️  Permission warning: %v\n", err)
 	} else {
 		log.Println("✅ Permissions set")
+	}
+
+	// 6. Handle Public Path Symlinking
+	if publicPath != "" && publicPath != remotePath {
+		log.Printf("🔗 Linking public folder to: %s\n", publicPath)
+
+		// If it's a directory (not a link), back it up instead of deleting
+		backupCmd := fmt.Sprintf("[ -d %[1]s ] && [ ! -L %[1]s ] && mv %[1]s %[1]s_backup_$(date +%%Y%%m%%d%%H%%M%%S) || rm -rf %[1]s", publicPath)
+		d.ExecuteCommand(backupCmd)
+
+		// Create symlink
+		linkCmd := fmt.Sprintf("ln -s %[1]s/public %[2]s", remotePath, publicPath)
+		output, err = d.ExecuteCommand(linkCmd)
+		if err != nil {
+			log.Printf("⚠️  Symlink warning: %v\n", err)
+		} else {
+			log.Println("✅ Public folder linked successfully")
+		}
 	}
 
 	log.Println("✅ Git Pull deployment completed successfully!")

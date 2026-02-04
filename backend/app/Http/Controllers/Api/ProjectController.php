@@ -29,6 +29,13 @@ class ProjectController extends Controller
             'repo_url' => 'required|url',
             'framework' => 'required|in:laravel,nextjs',
             'target' => 'required|in:vps,cpanel',
+            'ssh_host' => 'nullable|string',
+            'ssh_port' => 'nullable|string',
+            'ssh_user' => 'nullable|string',
+            'ssh_password' => 'nullable|string',
+            'ssh_key_path' => 'nullable|string',
+            'remote_path' => 'nullable|string',
+            'public_path' => 'nullable|string',
         ]);
 
         $project = $request->user()->projects()->create($validated);
@@ -63,6 +70,13 @@ class ProjectController extends Controller
             'repo_url' => 'sometimes|url',
             'framework' => 'sometimes|in:laravel,nextjs',
             'target' => 'sometimes|in:vps,cpanel',
+            'ssh_host' => 'nullable|string',
+            'ssh_port' => 'nullable|string',
+            'ssh_user' => 'nullable|string',
+            'ssh_password' => 'nullable|string',
+            'ssh_key_path' => 'nullable|string',
+            'remote_path' => 'nullable|string',
+            'public_path' => 'nullable|string',
         ]);
 
         $project->update($validated);

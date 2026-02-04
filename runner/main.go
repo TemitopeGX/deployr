@@ -31,11 +31,18 @@ type Job struct {
 
 // Project represents a project
 type Project struct {
-	ID        int    `json:"id"`
-	Name      string `json:"name"`
-	RepoURL   string `json:"repo_url"`
-	Framework string `json:"framework"`
-	Target    string `json:"target"`
+	ID          int    `json:"id"`
+	Name        string `json:"name"`
+	RepoURL     string `json:"repo_url"`
+	Framework   string `json:"framework"`
+	Target      string `json:"target"`
+	SSHHost     string `json:"ssh_host"`
+	SSHPort     string `json:"ssh_port"`
+	SSHUser     string `json:"ssh_user"`
+	SSHPassword string `json:"ssh_password"`
+	SSHKeyPath  string `json:"ssh_key_path"`
+	RemotePath  string `json:"remote_path"`
+	PublicPath  string `json:"public_path"`
 }
 
 // PollResponse is the response from polling for jobs
@@ -78,6 +85,7 @@ func (r *Runner) Start() {
 	log.Println("👀 Polling for jobs...")
 
 	for range ticker.C {
+		log.Printf("🔍 Polling... (Last checked: %s)\n", time.Now().Format("15:04:05"))
 		if err := r.poll(); err != nil {
 			log.Printf("❌ Error polling: %v\n", err)
 		}
@@ -124,13 +132,53 @@ func (r *Runner) poll() error {
 
 // processJob handles a deployment job
 func (r *Runner) processJob(job *Job) error {
-	log.Printf("📦 Processing job #%d for project: %s\n", job.ID, job.Project.Name)
+	log.Printf("📦 Processing job #%d for project: %s (Target: %s)\n", job.ID, job.Project.Name, job.Project.Target)
 
 	// Claim the job
 	if err := r.claimJob(job.ID); err != nil {
 		return fmt.Errorf("failed to claim job: %w", err)
 	}
 
+	if job.Project.Target == "cpanel" {
+		r.appendLogs(job.ID, "[Runner] Starting SSH deployment to cPanel...")
+
+		// Configure SSH
+		sshConfig := SSHConfig{
+			Host:     job.Project.SSHHost,
+			Port:     job.Project.SSHPort,
+			User:     job.Project.SSHUser,
+			Password: job.Project.SSHPassword,
+			KeyPath:  job.Project.SSHKeyPath,
+		}
+
+		if sshConfig.Port == "" {
+			sshConfig.Port = "22"
+		}
+
+		deployer := NewSSHDeployer(sshConfig)
+
+		// Connect
+		if err := deployer.Connect(); err != nil {
+			msg := fmt.Sprintf("Failed to connect via SSH: %v", err)
+			r.updateJobStatus(job.ID, "failed", msg)
+			return err
+		}
+		defer deployer.Close()
+
+		// Deploy
+		if err := deployer.DeployViaGitPull(job.Project.RemotePath, job.Branch, job.Project.PublicPath, job.Project.RepoURL); err != nil {
+			msg := fmt.Sprintf("SSH Deployment failed: %v", err)
+			r.updateJobStatus(job.ID, "failed", msg)
+			return err
+		}
+
+		// Mark as completed
+		r.updateJobStatus(job.ID, "completed", "[Runner] SSH Deployment completed successfully! ✅")
+		log.Printf("✅ Job #%d completed successfully via SSH!\n", job.ID)
+		return nil
+	}
+
+	// Default: local deployment (VPS or simulated)
 	// Clone repository
 	repoPath, err := r.cloneRepository(job)
 	if err != nil {
