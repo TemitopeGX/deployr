@@ -111,8 +111,8 @@ func (d *SSHDeployer) ExecuteCommand(command string) (string, error) {
 }
 
 // DeployViaGitPull deploys a project using git pull (clones if missing)
-func (d *SSHDeployer) DeployViaGitPull(remotePath, branch, publicPath, repoURL string) error {
-	log.Printf("🚀 Starting Git Pull deployment to: %s\n", remotePath)
+func (d *SSHDeployer) DeployViaGitPull(remotePath, branch, publicPath, repoURL, framework string) error {
+	log.Printf("🚀 Starting Git Pull deployment to: %s (Framework: %s)\n", remotePath, framework)
 
 	// 1. Ensure remote path exists or clone it
 	log.Println("📥 Checking remote path...")
@@ -140,64 +140,108 @@ func (d *SSHDeployer) DeployViaGitPull(remotePath, branch, publicPath, repoURL s
 	}
 	log.Printf("✅ Git operation completed: %s\n", strings.TrimSpace(output))
 
-	// 2. Install composer dependencies
-	log.Println("📦 Installing Composer dependencies...")
-	composerCmd := fmt.Sprintf("cd %s && /opt/cpanel/composer/bin/composer install --no-dev --optimize-autoloader --no-interaction", remotePath)
-	output, err = d.ExecuteCommand(composerCmd)
-	if err != nil {
-		log.Printf("⚠️  Composer install warning: %v\n", err)
-		// Don't fail deployment if composer has warnings
-	} else {
-		log.Println("✅ Composer dependencies installed")
-	}
-
-	// 3. Run database migrations
-	log.Println("🗄️  Running database migrations...")
-	migrateCmd := fmt.Sprintf("cd %s && php artisan migrate --force", remotePath)
-	output, err = d.ExecuteCommand(migrateCmd)
-	if err != nil {
-		log.Printf("⚠️  Migration warning: %v\n", err)
-		// Don't fail if migrations have warnings
-	} else {
-		log.Println("✅ Migrations completed")
-	}
-
-	// 4. Clear and cache config
-	log.Println("🔧 Caching configuration...")
-	cacheCmd := fmt.Sprintf("cd %s && php artisan config:cache && php artisan route:cache && php artisan view:cache", remotePath)
-	output, err = d.ExecuteCommand(cacheCmd)
-	if err != nil {
-		log.Printf("⚠️  Cache warning: %v\n", err)
-	} else {
-		log.Println("✅ Configuration cached")
-	}
-
-	// 5. Set permissions
-	log.Println("🔒 Setting permissions...")
-	permCmd := fmt.Sprintf("cd %s && chmod -R 755 storage bootstrap/cache", remotePath)
-	output, err = d.ExecuteCommand(permCmd)
-	if err != nil {
-		log.Printf("⚠️  Permission warning: %v\n", err)
-	} else {
-		log.Println("✅ Permissions set")
-	}
-
-	// 6. Handle Public Path Symlinking
-	if publicPath != "" && publicPath != remotePath {
-		log.Printf("🔗 Linking public folder to: %s\n", publicPath)
-
-		// If it's a directory (not a link), back it up instead of deleting
-		backupCmd := fmt.Sprintf("[ -d %[1]s ] && [ ! -L %[1]s ] && mv %[1]s %[1]s_backup_$(date +%%Y%%m%%d%%H%%M%%S) || rm -rf %[1]s", publicPath)
-		d.ExecuteCommand(backupCmd)
-
-		// Create symlink
-		linkCmd := fmt.Sprintf("ln -s %[1]s/public %[2]s", remotePath, publicPath)
-		output, err = d.ExecuteCommand(linkCmd)
+	if framework == "laravel" {
+		// 2. Install composer dependencies
+		log.Println("📦 Installing Composer dependencies...")
+		composerCmd := fmt.Sprintf("cd %s && /opt/cpanel/composer/bin/composer install --no-dev --optimize-autoloader --no-interaction", remotePath)
+		output, err = d.ExecuteCommand(composerCmd)
 		if err != nil {
-			log.Printf("⚠️  Symlink warning: %v\n", err)
+			log.Printf("⚠️  Composer install warning: %v\n", err)
+			// Don't fail deployment if composer has warnings
 		} else {
-			log.Println("✅ Public folder linked successfully")
+			log.Println("✅ Composer dependencies installed")
 		}
+
+		// 3. Run database migrations
+		log.Println("🗄️  Running database migrations...")
+		migrateCmd := fmt.Sprintf("cd %s && php artisan migrate --force", remotePath)
+		output, err = d.ExecuteCommand(migrateCmd)
+		if err != nil {
+			log.Printf("⚠️  Migration warning: %v\n", err)
+			// Don't fail if migrations have warnings
+		} else {
+			log.Println("✅ Migrations completed")
+		}
+
+		// 4. Clear and cache config
+		log.Println("🔧 Caching configuration...")
+		cacheCmd := fmt.Sprintf("cd %s && php artisan config:cache && php artisan route:cache && php artisan view:cache", remotePath)
+		output, err = d.ExecuteCommand(cacheCmd)
+		if err != nil {
+			log.Printf("⚠️  Cache warning: %v\n", err)
+		} else {
+			log.Println("✅ Configuration cached")
+		}
+
+		// 5. Set permissions
+		log.Println("🔒 Setting permissions...")
+		permCmd := fmt.Sprintf("cd %s && chmod -R 755 storage bootstrap/cache", remotePath)
+		output, err = d.ExecuteCommand(permCmd)
+		if err != nil {
+			log.Printf("⚠️  Permission warning: %v\n", err)
+		} else {
+			log.Println("✅ Permissions set")
+		}
+
+		// 6. Handle Public Path Symlinking
+		if publicPath != "" && publicPath != remotePath {
+			log.Printf("🔗 Linking public folder to: %s\n", publicPath)
+
+			// If it's a directory (not a link), back it up instead of deleting
+			backupCmd := fmt.Sprintf("[ -d %[1]s ] && [ ! -L %[1]s ] && mv %[1]s %[1]s_backup_$(date +%%Y%%m%%d%%H%%M%%S) || rm -rf %[1]s", publicPath)
+			d.ExecuteCommand(backupCmd)
+
+			// Create symlink
+			linkCmd := fmt.Sprintf("ln -s %[1]s/public %[2]s", remotePath, publicPath)
+			output, err = d.ExecuteCommand(linkCmd)
+			if err != nil {
+				log.Printf("⚠️  Symlink warning: %v\n", err)
+			} else {
+				log.Println("✅ Public folder linked successfully")
+			}
+		}
+
+	} else if framework == "nextjs" {
+		// Next.js Deployment Steps
+		log.Println("📦 Check environment and installing dependencies...")
+
+		// Helper to run in login shell
+		runInShell := func(cmd string) (string, error) {
+			safeCmd := strings.ReplaceAll(cmd, "'", "'\\''")
+			// We try to auto-detect cPanel node path dynamically in the command execution
+			// This one-liner adds the latest ea-nodejs bin to PATH if it exists
+			detectNodePath := "export PATH=$PATH:$(ls -d /opt/cpanel/ea-nodejs*/bin 2>/dev/null | sort -V | tail -n 1)"
+
+			fullCmd := fmt.Sprintf("bash -l -c '%s && cd %s && %s'", detectNodePath, remotePath, safeCmd)
+			return d.ExecuteCommand(fullCmd)
+		}
+
+		// check node version
+		nodeVer, err := runInShell("node -v")
+		if err != nil {
+			log.Printf("⚠️  Node check failed: %v. (Will attempt install anyway using cPanel path detection)\n", err)
+		} else {
+			log.Printf("✅ DBG: Found Node Version: %s", strings.TrimSpace(nodeVer))
+		}
+
+		// npm install
+		output, err = runInShell("npm install")
+		if err != nil {
+			return fmt.Errorf("npm install failed: %w, output: %s", err, output)
+		}
+		log.Println("✅ Dependencies installed")
+
+		log.Println("🏗️  Building Next.js app...")
+		output, err = runInShell("npm run build")
+		if err != nil {
+			return fmt.Errorf("next build failed: %w, output: %s", err, output)
+		}
+		log.Println("✅ Build completed")
+
+		// Attempt to restart PM2
+		log.Println("🔄 Restarting Process (PM2)...")
+		output, _ = runInShell("pm2 restart ecosystem.config.js || pm2 restart all || echo 'PM2 not found or failed'")
+		log.Printf("✅ Process restart update: %s\n", strings.TrimSpace(output))
 	}
 
 	log.Println("✅ Git Pull deployment completed successfully!")

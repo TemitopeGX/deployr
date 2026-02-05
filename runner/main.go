@@ -166,7 +166,7 @@ func (r *Runner) processJob(job *Job) error {
 		defer deployer.Close()
 
 		// Deploy
-		if err := deployer.DeployViaGitPull(job.Project.RemotePath, job.Branch, job.Project.PublicPath, job.Project.RepoURL); err != nil {
+		if err := deployer.DeployViaGitPull(job.Project.RemotePath, job.Branch, job.Project.PublicPath, job.Project.RepoURL, job.Project.Framework); err != nil {
 			msg := fmt.Sprintf("SSH Deployment failed: %v", err)
 			r.updateJobStatus(job.ID, "failed", msg)
 			return err
